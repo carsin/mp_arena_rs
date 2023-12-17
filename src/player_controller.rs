@@ -54,8 +54,7 @@ fn read_controls(
 
     let hovered_position = window
         .cursor_position()
-        .map(|cursor_pos| camera.viewport_to_world_2d(camera_transform, cursor_pos))
-        .flatten();
+        .and_then(|cursor_pos| camera.viewport_to_world_2d(camera_transform, cursor_pos));
 
     for (mut controller, controller_transform) in controllers.iter_mut() {
         controller.move_direction = IVec2::new(

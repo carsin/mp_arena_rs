@@ -6,9 +6,9 @@ use bevy::{
     prelude::*,
     window::{close_on_esc, PresentMode},
 };
-use camera_controller::{CameraController, CameraControllerPlugin};
 use player::PlayerBundleFactory;
 use player_controller::{PlayerController, PlayerControllerPlugin};
+use camera_controller::{CameraController, CameraControllerPlugin};
 
 #[derive(Clone, PartialEq, Eq, Debug, Hash, Default, States)]
 pub enum GameState {
@@ -21,7 +21,14 @@ pub enum GameState {
 fn main() {
     App::new()
         .add_plugins((
-            DefaultPlugins,
+            DefaultPlugins.set(WindowPlugin {
+                primary_window: Some(Window {
+                    fit_canvas_to_parent: true, // always fill entire window
+                    prevent_default_event_handling: false, // don't hijack keyboard shortcuts 
+                    ..default()
+                }),
+                ..default()
+            }),
             PlayerControllerPlugin,
             CameraControllerPlugin,
         ))
