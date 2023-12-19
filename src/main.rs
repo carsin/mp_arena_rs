@@ -1,31 +1,26 @@
-mod player;
-mod networking;
-mod player_controller;
 mod camera_controller;
+mod input;
+mod player;
 
-use bevy::{
-    prelude::*,
-    window::{close_on_esc, PresentMode},
-};
-use player::PlayerBundleFactory;
-use player_controller::{PlayerController, PlayerControllerPlugin};
-use camera_controller::{CameraController, CameraControllerPlugin};
-use clap::{Parser, arg};
+use bevy::{prelude::*, window::close_on_esc};
 use bevy_ggrs::prelude::*;
+use camera_controller::{CameraController, CameraControllerPlugin};
+use clap::{arg, Parser};
 use ggrs::{P2PSession, PlayerType, SessionBuilder, UdpNonBlockingSocket};
+use input::PlayerInput;
+use player::PlayerBundleFactory;
 use std::net::SocketAddr;
 
 const FPS: usize = 60;
-type Config = bevy_ggrs::GgrsConfig<u8>;
+type Config = bevy_ggrs::GgrsConfig<PlayerInput>;
 
 #[derive(Parser, Resource)]
 struct Args {
     #[arg(short, long)]
-    local_port: u16,
+    port: u16,
+
     #[arg(short, long, num_args = 1..)]
-    players: Vec<String>,
-    #[arg(short, long, num_args = 1..)]
-    spectators: Vec<SocketAddr>,
+    remote_players: Vec<SocketAddr>,
 }
 
 #[derive(Clone, PartialEq, Eq, Debug, Hash, Default, States)]
@@ -37,47 +32,50 @@ pub enum GameState {
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let arg = Args::parse();
-    let num_players = arg.players.len();
-    assert!(num_players > 0);
+    let args = Args::parse();
+    let player_count = args.remote_players.len() + 1;
 
-    // create a GGRS session builder
-    let mut sess_build = SessionBuilder::<Config>::new()
-        .with_num_players(num_players)
-        .with_desync_detection_mode(ggrs::DesyncDetection::On { interval: 10 })
-        .with_input_delay(2)
-        .with_max_prediction_window(12);
-    
-    for (i, player_addr) in opt.players.iter().enumerate() {
-        if player_addr == "localhost" {
-            sess_build = sess_build.add_player(PlayerType::Local, i)?;
-        } else {
-            let remote_addr: SocketAddr = player_addr.parse()?;
-            sess_build = sess_build.add_player(PlayerType::Remote(remote_addr), i)?;
-        }
+    let mut session_builder = SessionBuilder::<Config>::new()
+        .with_num_players(player_count)
+        .with_desync_detection_mode(ggrs::DesyncDetection::On { interval: 10 });
+
+    // Add local player (always handle 0)
+    session_builder = session_builder.add_player(PlayerType::Local, 0)?;
+
+    // Add other players (handles 1+)
+    for (i, player_addr) in args.remote_players.iter().enumerate() {
+        let handle = i + 1;
+        session_builder =
+            session_builder.add_player(PlayerType::Remote(player_addr.clone()), handle)?;
     }
 
-    let socket = UdpNonBlockingSocket::bind_to_port(arg.local_port).unwrap();
-    let sess = sess_build.start_p2p_session(socket).unwrap();
-    
+    let socket = UdpNonBlockingSocket::bind_to_port(args.port).unwrap();
+    let session = session_builder.start_p2p_session(socket).unwrap();
+
+    start_app(session);
+
+    Ok(())
+}
+
+fn start_app(session: P2PSession<Config>) {
     App::new()
         .add_plugins((
             DefaultPlugins.set(WindowPlugin {
                 primary_window: Some(Window {
-                    fit_canvas_to_parent: true, // always fill entire window
+                    fit_canvas_to_parent: true,            // always fill entire window
                     prevent_default_event_handling: false, // don't hijack keyboard shortcuts
                     ..default()
                 }),
                 ..default()
             }),
-            GgrsPlugin::<Config>::default()
-            .set_rollback_schedule_fps(FPS),
-            PlayerControllerPlugin,
+            GgrsPlugin::<Config>::default(),
             CameraControllerPlugin,
         ))
+        .set_rollback_schedule_fps(FPS)
+        .rollback_component_with_clone::<Transform>()
         .add_state::<GameState>()
         .insert_resource(ClearColor(Color::hsl(0.0, 0.0, 0.05)))
-        .insert_resource(SessionType::new(sess))
+        .insert_resource(Session::P2P(session))
         .add_systems(
             Startup,
             (
@@ -87,13 +85,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 apply_deferred.after(spawn_camera).before(spawn_player),
                 spawn_player,
                 test_spawn_dummy_player,
-
             ),
         )
         .add_systems(Update, close_on_esc)
         .run();
-
-    Ok(())
 }
 
 fn spawn_camera(mut commands: Commands) {
@@ -110,7 +105,6 @@ fn spawn_player(
 ) {
     let entity = commands
         .spawn(player_factory.build())
-        .insert(PlayerController::default())
         .add_rollback()
         .id();
 
@@ -133,3 +127,5 @@ fn test_spawn_dummy_player(mut commands: Commands, mut player_factory: PlayerBun
         commands.spawn(dummy);
     }
 }
+
+fn read_local_input() {}
