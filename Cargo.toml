@@ -7,6 +7,11 @@ edition = "2021"
 
 [dependencies]
 rand = "0.8"
+bevy_ggrs = { version = "0.14.*", features = ["wasm-bindgen"] }
+bevy_matchbox = { version = "0.8.*", features = ["ggrs"] }
+bytemuck = "1.14.0"
+clap = { version = "4.4.11", features = ["derive"] }
+ggrs = "0.10.0"
 
 [dependencies.bevy]
 version = "0.12.*"
