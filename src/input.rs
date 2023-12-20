@@ -1,14 +1,13 @@
-use bevy::prelude::*;
+use bevy::{prelude::*, utils::HashMap};
 use bevy_ggrs::{prelude::*, LocalInputs, LocalPlayers, PlayerInputs, GgrsConfig};
 use bytemuck::{Pod, Zeroable};
-use std::collections::HashMap;
 
 use super::Config;
 
 #[repr(C)]
 #[derive(Clone, Copy, PartialEq, Pod, Zeroable, Debug, Default)]
 pub struct PlayerInput {
-    direction: Vec2,
+    pub direction: Vec2,
 }
 
 pub fn read_local_input(
@@ -33,6 +32,7 @@ pub fn read_local_input(
         if keyboard_input.pressed(KeyCode::D) {
             direction.x += 1.0;
         }
+        direction = direction.normalize_or_zero();
 
         local_inputs.insert(*handle, PlayerInput { direction });
     }

@@ -1,15 +1,18 @@
 mod camera_controller;
 mod input;
 mod player;
+mod game;
 
 use bevy::{prelude::*, window::close_on_esc};
 use bevy_ggrs::prelude::*;
 use camera_controller::{CameraController, CameraControllerPlugin};
 use clap::{arg, Parser};
 use ggrs::{P2PSession, PlayerType, SessionBuilder, UdpNonBlockingSocket};
-use input::PlayerInput;
 use player::PlayerBundleFactory;
 use std::net::SocketAddr;
+
+use input::{PlayerInput, read_local_input};
+use game::{Velocity, move_player_system};
 
 const FPS: usize = 60;
 type Config = bevy_ggrs::GgrsConfig<PlayerInput>;
@@ -46,7 +49,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     for (i, player_addr) in args.remote_players.iter().enumerate() {
         let handle = i + 1;
         session_builder =
-            session_builder.add_player(PlayerType::Remote(player_addr.clone()), handle)?;
+            session_builder.add_player(PlayerType::Remote(*player_addr), handle)?;
     }
 
     let socket = UdpNonBlockingSocket::bind_to_port(args.port).unwrap();
@@ -76,6 +79,10 @@ fn start_app(session: P2PSession<Config>) {
         .add_state::<GameState>()
         .insert_resource(ClearColor(Color::hsl(0.0, 0.0, 0.05)))
         .insert_resource(Session::P2P(session))
+        // The Velocity resource implements Copy, we can use that to have minimal overhead rollback
+        .rollback_component_with_copy::<Velocity>()
+        // Transform only implement Clone, so instead we'll use that to snapshot and rollback with
+        .rollback_component_with_clone::<Transform>()
         .add_systems(
             Startup,
             (
@@ -87,6 +94,9 @@ fn start_app(session: P2PSession<Config>) {
                 test_spawn_dummy_player,
             ),
         )
+        // these systems will be executed as part of the advance frame update
+        .add_systems(GgrsSchedule, move_player_system)
+        .add_systems(ReadInputs, read_local_input)
         .add_systems(Update, close_on_esc)
         .run();
 }
@@ -113,6 +123,22 @@ fn spawn_player(
     }
 }
 
+fn spawn_players(
+    mut commands: Commands,
+    mut player_factory: PlayerBundleFactory,
+    mut cameras: Query<&mut CameraController>,
+    session: Res<Session<Config>>,
+)  {
+    let num_players = match &*session {
+        Session::SyncTest(s) => s.num_players(),
+        Session::P2P(s) => s.num_players(),
+        Session::Spectator(s) => s.num_players(),
+    };
+    for handle in 0..num_players {
+        // spawn_player(commands);
+    }
+}
+
 /// TEST: spawns a player with no player controller
 fn test_spawn_dummy_player(mut commands: Commands, mut player_factory: PlayerBundleFactory) {
     for _ in 0..15 {
@@ -127,5 +153,3 @@ fn test_spawn_dummy_player(mut commands: Commands, mut player_factory: PlayerBun
         commands.spawn(dummy);
     }
 }
-
-fn read_local_input() {}

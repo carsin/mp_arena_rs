@@ -1,4 +1,13 @@
 use bevy::{ecs::system::SystemParam, prelude::*, sprite::Mesh2dHandle};
+use bevy_ggrs::prelude::*;
+
+use crate::game::Velocity;
+use crate::Config;
+
+#[derive(Component, Default)]
+pub struct Player {
+    pub handle: usize,
+}
 
 #[derive(Bundle, Default)]
 pub struct PlayerBundle {
@@ -10,6 +19,7 @@ pub struct PlayerBundle {
 pub struct PlayerBundleFactory<'w> {
     meshes: ResMut<'w, Assets<Mesh>>,
     materials: ResMut<'w, Assets<ColorMaterial>>,
+    session: Res<'w, Session<Config>>,
 }
 
 impl PlayerBundleFactory<'_> {
@@ -36,6 +46,3 @@ impl PlayerBundleFactory<'_> {
         }
     }
 }
-
-#[derive(Component, Default)]
-pub struct Player;
