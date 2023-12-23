@@ -28,7 +28,7 @@ use player::PlayerBundleFactory;
 use player_controller::{PlayerController, PlayerControllerPlugin};
 use renet::transport::{NetcodeClientTransport, NetcodeServerTransport, NetcodeTransportError};
 use serde::{Deserialize, Serialize};
-use server::{run_server, make_connection_config};
+use server::{make_connection_config, run_server};
 
 #[derive(Clone, PartialEq, Eq, Debug, Hash, Default, States)]
 pub enum GameState {

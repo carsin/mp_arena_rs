@@ -20,9 +20,9 @@ use std::{
 };
 
 use crate::camera_controller::{CameraController, CameraControllerPlugin};
-use crate::player::PlayerBundleFactory;
+use crate::player::{Player, PlayerBundleFactory};
 use crate::player_controller::{PlayerController, PlayerControllerPlugin};
-use crate::server::{ServerChannel, ClientChannel, Lobby, PlayerState, ServerMessage};
+use crate::server::{ClientChannel, Lobby, PlayerState, ServerChannel, ServerMessage};
 use crate::GameState;
 
 #[derive(Component)]
@@ -34,6 +34,14 @@ struct PlayerEntity {
 struct PlayerInput {
     direction: Vec2,
 }
+
+#[derive(Debug, Default, Resource)]
+struct ClientEntities {
+    players: HashMap<ClientId, Entity>,
+}
+
+#[derive(Debug, Resource)]
+struct LocalClientId(u64);
 
 pub fn run_client(server_address: SocketAddr, connection_config: ConnectionConfig) {
     let current_time = SystemTime::now()
@@ -60,8 +68,10 @@ pub fn run_client(server_address: SocketAddr, connection_config: ConnectionConfi
         ))
         .add_state::<GameState>()
         .insert_resource(Lobby::default())
+        .insert_resource(ClientEntities::default())
         .insert_resource(ClearColor(Color::hsl(0.0, 0.0, 0.05)))
         .insert_resource(RenetClient::new(connection_config))
+        .insert_resource(LocalClientId(client_id))
         .insert_resource(
             NetcodeClientTransport::new(
                 SystemTime::now()
@@ -82,10 +92,7 @@ pub fn run_client(server_address: SocketAddr, connection_config: ConnectionConfi
                 spawn_player,
             ),
         )
-        .add_systems(
-            Update,
-            (client_send_input, client_receive, update_player_entities),
-        )
+        .add_systems(Update, (client_send_input, client_receive))
         .add_systems(Update, close_on_esc)
         .run();
 }
@@ -105,7 +112,15 @@ fn client_send_input(
     }
 }
 
-fn client_receive(mut client: ResMut<RenetClient>, mut lobby: ResMut<Lobby>) {
+fn client_receive(
+    mut commands: Commands,
+    mut client: ResMut<RenetClient>,
+    mut lobby: ResMut<Lobby>,
+    mut entities: ResMut<ClientEntities>,
+    mut materials: ResMut<Assets<ColorMaterial>>,
+    mut meshes: ResMut<Assets<Mesh>>,
+    local_client_id: Res<LocalClientId>,
+) {
     while let Some(message) = client.receive_message(ServerChannel::PlayerData) {
         // info!("received data message: {:?}", message);
 
@@ -117,7 +132,51 @@ fn client_receive(mut client: ResMut<RenetClient>, mut lobby: ResMut<Lobby>) {
         let server_message: ServerMessage = bincode::deserialize(&message).unwrap();
         info!("received server message: {:?}", server_message);
         match server_message {
-            _ => (), 
+            ServerMessage::PlayerConnected {
+                client_id,
+                player_state,
+            } => {
+                info!("Player {} connected.", client_id);
+
+                // spawn new entity for remote players
+                if (local_client_id.0) != client_id.raw() {
+                    // TODO: abstract
+                    let player_entity = commands
+                        .spawn(ColorMesh2dBundle {
+                            mesh: Mesh2dHandle(
+                                meshes.add(
+                                    shape::Quad {
+                                        size: Vec2::splat(1.2),
+                                        ..Default::default()
+                                    }
+                                    .into(),
+                                ),
+                            ),
+                            material: materials.add(ColorMaterial {
+                                color: Color::YELLOW,
+                                ..Default::default()
+                            }),
+                            transform: Transform::from_xyz(
+                                player_state.position.x,
+                                player_state.position.y,
+                                player_state.position.z,
+                            ),
+                            ..Default::default()
+                        })
+                        .insert(PlayerEntity { client_id })
+                        .id();
+
+                    entities.players.insert(client_id, player_entity);
+                }
+                lobby.player_data.insert(client_id, player_state);
+            }
+            ServerMessage::PlayerDisconnected { client_id } => {
+                info!("Player {} disconnected.", client_id);
+                lobby.player_data.remove(&client_id);
+                if let Some(player_entity) = entities.players.remove(&client_id) {
+                    commands.entity(player_entity).despawn();
+                }
+            }
         }
     }
 }
@@ -148,8 +207,6 @@ fn update_player_entities(
     mut commands: Commands,
     lobby: Res<Lobby>,
     mut query: Query<(Entity, &mut Transform, &PlayerEntity)>,
-    mut materials: ResMut<Assets<ColorMaterial>>,
-    mut meshes: ResMut<Assets<Mesh>>,
 ) {
     let existing_players = &lobby.player_data;
 
@@ -160,31 +217,6 @@ fn update_player_entities(
         } else {
             // Despawn entities that are no longer in the game state
             commands.entity(entity).despawn();
-        }
-    }
-
-    // Spawn entities for new players
-    for (&client_id, player_state) in lobby.player_data.iter() {
-        if !existing_players.contains_key(&client_id) {
-            commands
-                .spawn(ColorMesh2dBundle {
-                    mesh: Mesh2dHandle(
-                        meshes.add(
-                            shape::Quad {
-                                size: Vec2::splat(1.2),
-                                ..Default::default()
-                            }
-                            .into(),
-                        ),
-                    ),
-                    material: materials.add(ColorMaterial {
-                        color: Color::YELLOW,
-                        ..Default::default()
-                    }),
-                    transform: Transform::from_translation(player_state.position),
-                    ..Default::default()
-                })
-                .insert(PlayerEntity { client_id });
         }
     }
 }
