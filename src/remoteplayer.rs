@@ -1,24 +1,29 @@
 use bevy::{ecs::system::SystemParam, prelude::*, sprite::Mesh2dHandle};
+use bevy_renet::renet::ClientId;
 
 #[derive(Component, Default)]
-pub struct Player;
+pub struct RemotePlayer {
+    // TODO: track clientid in component?
+    // pub id: ClientId,
+    // move_direction: Vec2,
+}
 
 #[derive(Bundle, Default)]
-pub struct PlayerBundle {
-    pub player: Player,
+pub struct RemotePlayerBundle {
+    pub player: RemotePlayer,
     pub mesh: ColorMesh2dBundle,
 }
 
 #[derive(SystemParam)]
-pub struct PlayerBundleFactory<'w> {
+pub struct RemotePlayerBundleFactory<'w> {
     meshes: ResMut<'w, Assets<Mesh>>,
     materials: ResMut<'w, Assets<ColorMaterial>>,
 }
 
-impl PlayerBundleFactory<'_> {
-    pub fn build(&mut self) -> PlayerBundle {
-        PlayerBundle {
-            player: Player,
+impl RemotePlayerBundleFactory<'_> {
+    pub fn build(&mut self) -> RemotePlayerBundle {
+        RemotePlayerBundle {
+            player: RemotePlayer {},
             mesh: ColorMesh2dBundle {
                 mesh: Mesh2dHandle(
                     self.meshes.add(

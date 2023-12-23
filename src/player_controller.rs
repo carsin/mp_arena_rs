@@ -18,7 +18,7 @@ impl Plugin for PlayerControllerPlugin {
             // And just interpolate the renderer's transform to the tracked
             // object's transform.
             FixedUpdate,
-            (read_controls, apply_controls.after(read_controls)),
+            read_controls,
         );
     }
 }
@@ -27,7 +27,7 @@ impl Plugin for PlayerControllerPlugin {
 pub struct PlayerController {
     /// Direction player is trying to move. Magnitude shall always be less than
     /// or equal to 1.
-    move_direction: Vec2,
+    pub move_direction: Vec2,
 
     /// Current player motion. May be replaced by a physics plugin later.
     velocity: Vec2,
@@ -54,8 +54,7 @@ fn read_controls(
 
     let hovered_position = window
         .cursor_position()
-        .map(|cursor_pos| camera.viewport_to_world_2d(camera_transform, cursor_pos))
-        .flatten();
+        .and_then(|cursor_pos| camera.viewport_to_world_2d(camera_transform, cursor_pos));
 
     for (mut controller, controller_transform) in controllers.iter_mut() {
         controller.move_direction = IVec2::new(
