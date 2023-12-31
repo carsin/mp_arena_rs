@@ -1,24 +1,19 @@
 use bevy::{ecs::system::SystemParam, prelude::*, sprite::Mesh2dHandle};
 
-#[derive(Component, Default)]
-pub struct Player;
-
 #[derive(Bundle, Default)]
-pub struct PlayerBundle {
-    pub player: Player,
+pub struct PlayerRendererBundle {
     pub mesh: ColorMesh2dBundle,
 }
 
 #[derive(SystemParam)]
-pub struct PlayerBundleFactory<'w> {
+pub struct PlayerRendererBundleFactory<'w> {
     meshes: ResMut<'w, Assets<Mesh>>,
     materials: ResMut<'w, Assets<ColorMaterial>>,
 }
 
-impl PlayerBundleFactory<'_> {
-    pub fn build(&mut self) -> PlayerBundle {
-        PlayerBundle {
-            player: Player,
+impl PlayerRendererBundleFactory<'_> {
+    pub fn build(&mut self) -> PlayerRendererBundle {
+        PlayerRendererBundle {
             mesh: ColorMesh2dBundle {
                 mesh: Mesh2dHandle(
                     self.meshes.add(

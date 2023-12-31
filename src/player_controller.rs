@@ -1,39 +1,35 @@
 use bevy::{prelude::*, window::PrimaryWindow};
+use serde::{Deserialize, Serialize};
 
 pub const PLAYER_SPEED: f32 = 15.0;
 
-pub struct PlayerControllerPlugin;
+pub struct PlayerControllerPlugin {
+    // If headless, player controllers will not be updated using local inputs.
+    // Turn this on for server side.
+    pub headless: bool,
+}
 
 impl Plugin for PlayerControllerPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(
-            // TODO: since rollback networking will be used, movements need to
-            // be in fixed update. This will appear a little choppy for high
-            // refresh displays so should figure out how to interpolate rendered
-            // objects.
-            //
-            // Idea: instead of attaching meshes directly to an entity, add a
-            // separate XXXXRenderer entity that has an internal entity
-            // reference field tracking the target object that will be rendered.
-            // And just interpolate the renderer's transform to the tracked
-            // object's transform.
-            FixedUpdate,
-            read_controls,
-        );
+        app.add_systems(FixedUpdate, apply_controls);
+
+        if !self.headless {
+            app.add_systems(FixedUpdate, read_controls.before(apply_controls));
+        }
     }
 }
 
-#[derive(Component, Default)]
+#[derive(Component, Clone, Default, Serialize, Deserialize, Debug)]
 pub struct PlayerController {
     /// Direction player is trying to move. Magnitude shall always be less than
     /// or equal to 1.
     pub move_direction: Vec2,
 
     /// Current player motion. May be replaced by a physics plugin later.
-    velocity: Vec2,
+    pub velocity: Vec2,
 
     /// Angle player is trying to face towards.
-    target_angle: f32,
+    pub target_angle: f32,
 }
 
 fn read_controls(

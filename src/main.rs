@@ -1,33 +1,19 @@
 mod camera_controller;
 mod client;
+mod channels;
 mod player;
 mod player_controller;
 mod remoteplayer;
 mod remoteplayer_controller;
 mod server;
+mod messages;
 
-use std::{
-    net::{SocketAddr, UdpSocket},
-    time::SystemTime,
-};
+use std::net::SocketAddr;
 
-use bevy::{log::LogPlugin, prelude::*, utils::HashMap, window::close_on_esc};
-use bevy_renet::{
-    client_connected,
-    renet::{
-        transport::{ClientAuthentication, ServerAuthentication, ServerConfig},
-        ClientId, ConnectionConfig, DefaultChannel, RenetClient, RenetServer, ServerEvent,
-    },
-    transport::{NetcodeClientPlugin, NetcodeServerPlugin},
-    RenetClientPlugin, RenetServerPlugin,
-};
-use camera_controller::{CameraController, CameraControllerPlugin};
+use bevy::prelude::*;
+
 use clap::Parser;
 use client::run_client;
-use player::PlayerBundleFactory;
-use player_controller::{PlayerController, PlayerControllerPlugin};
-use renet::transport::{NetcodeClientTransport, NetcodeServerTransport, NetcodeTransportError};
-use serde::{Deserialize, Serialize};
 use server::{make_connection_config, run_server};
 
 #[derive(Clone, PartialEq, Eq, Debug, Hash, Default, States)]
