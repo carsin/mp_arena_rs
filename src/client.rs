@@ -11,16 +11,16 @@ use std::{
     time::SystemTime,
 };
 
-use crate::GameState;
 use crate::{
     camera_controller::{CameraController, CameraControllerPlugin},
-    messages::{self, ServerMessage},
+    messages::ServerMessage,
 };
-use crate::{messages::ClientMessage, player::PlayerRendererBundleFactory};
+use crate::{messages::ClientMessage, rendering::RendererPlugin};
 use crate::{
     player_controller::{PlayerController, PlayerControllerPlugin},
-    remoteplayer_controller::RemotePlayerControllerPlugin,
+    remote_state::RemotePlayerControllerPlugin,
 };
+use crate::{rendering::PlayerRendererBundleFactory, GameState};
 
 #[derive(Debug, Default, Serialize, Deserialize, Component, Clone)]
 struct PlayerInput {
@@ -56,6 +56,7 @@ pub fn run_client(server_address: SocketAddr, connection_config: ConnectionConfi
             CameraControllerPlugin,
             RenetClientPlugin,
             NetcodeClientPlugin,
+            RendererPlugin,
         ))
         .add_state::<GameState>()
         .insert_resource(ClientMap::default())
@@ -107,12 +108,23 @@ fn client_receive(
                     //     continue;
                     // }
 
-                    let player_entity = client_map
-                        .entry(client_id)
-                        .or_insert_with(|| commands.spawn(player_factory.build()).id());
-                    commands.entity(*player_entity).insert(controller);
+                    if let Some(player_entity) = client_map.get_mut(&client_id) {
+                        commands.entity(*player_entity).insert(controller);
+                    } else {
+                        // Spawn player
+                        let player_entity = commands
+                            .spawn((controller, TransformBundle::default()))
+                            .id();
+
+                        // Spawn player renderer
+                        commands.spawn(player_factory.build(player_entity));
+
+                        // Register client ID -> player mapping
+                        client_map.insert(client_id, player_entity);
+                    }
                 }
             }
+            ServerMessage::Bullets(bullets) => {}
         }
     }
 }

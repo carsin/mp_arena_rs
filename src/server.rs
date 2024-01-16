@@ -14,7 +14,7 @@ use crate::{
     messages::{ClientMessage, ServerMessage},
     player_controller::{PlayerController, PlayerControllerPlugin},
 };
-use crate::{remoteplayer_controller::RemotePlayerController, GameState};
+use crate::{remote_state::RemotePlayerState, GameState};
 
 pub fn make_connection_config() -> ConnectionConfig {
     ConnectionConfig::default()
@@ -170,9 +170,9 @@ fn server_broadcast(
             .map(|(transform, player_client)| {
                 (
                     **player_client,
-                    RemotePlayerController {
-                        server_position: transform.translation.xy(),
-                        server_angle: transform.rotation.to_euler(EulerRot::XYZ).2,
+                    RemotePlayerState {
+                        position: transform.translation.xy(),
+                        angle: transform.rotation.to_euler(EulerRot::XYZ).2,
                     },
                 )
             })

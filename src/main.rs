@@ -1,12 +1,12 @@
 mod camera_controller;
-mod client;
 mod channels;
+mod client;
+mod messages;
 mod player;
 mod player_controller;
-mod remoteplayer;
-mod remoteplayer_controller;
+mod remote_state;
+mod rendering;
 mod server;
-mod messages;
 
 use std::net::SocketAddr;
 
